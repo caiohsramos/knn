@@ -1,7 +1,7 @@
 /* Programa que le diversos arquivos de dados e realiza as operacoes
  * 	desejadas de acordo com a escolha do usuario.
  * 
- * T3 - Caio Ramos NUSP 9292991 
+ * T4 - Caio Ramos NUSP 9292991 
  */
 
 //bibliotecas
@@ -482,6 +482,101 @@ void dump_nn(LISTA *lista) {
 	
 }
 
+void knn(LISTA *lista) {
+	int i, n_vizinhos, n, soma_bytes, j, id;
+	double dist, soma;
+	void *p1;
+	void **p2;
+	FILE *fp = NULL;
+	scanf("%d", &n_vizinhos);
+	scanf("%d", &id);
+	n = lista->n_campos;
+	fp = fopen(lista->nomeData, "r+");
+	fseek(fp, 0, SEEK_END);
+	p2 = malloc(sizeof(void*)*(n-2));
+	for(i = 0; i < n-3; i++) {
+		p2[i] = malloc(lista->campo[i+1].tamanho);
+		//faz a leitura adequada para o campo...
+		switch(lista->campo[i+1].tipo) {
+			case INT:
+				scanf("%d", (int*)p2[i]);
+				break;
+			case DOUBLE:
+				scanf("%lf", (double*)p2[i]);
+				break;
+		}
+	}
+	
+	lista->n_registros = ((ftell(fp))/(double)(lista->tamanhoRegistro));
+	for (i = 0; i <= lista->n_registros; i++) {
+		soma = 0;
+		soma_bytes = sizeof(int);
+		for(j = 1; j < n-2; j++) { //percorre os 'n' campos
+			fseek(fp, ((i*lista->tamanhoRegistro)+soma_bytes), SEEK_SET);
+			switch (lista->campo[j].tipo) {
+				case INT:
+					p1 = malloc(sizeof(int));
+					fread(p1, sizeof(int), 1, fp);
+					soma += (((*(int*)p1)-(*(int*)p2[j-1]))*((*(int*)p1)-(*(int*)p2[j-1])));
+					free(p1);
+					soma_bytes += sizeof(int);
+					break;
+				case DOUBLE:
+					p1 = malloc(sizeof(double));
+					fread(p1, sizeof(double), 1, fp);
+					soma += (((*(double*)p1)-(*(double*)(p2[j-1])))*((*(double*)p1)-(*(double*)(p2[j-1]))));
+					free(p1);
+					soma_bytes += sizeof(double);
+					break;
+			}
+		}
+		dist = sqrt(soma);
+		fseek(fp, lista->campo[j].tamanho, SEEK_CUR);
+		fwrite(&dist, sizeof(double), 1, fp);
+	}
+	
+	for(i = 0; i < n-3; i++) {
+		free(p2[i]);
+	}
+	free(p2);
+	criaVetorDistancia(lista);
+	ordenaDist(lista);
+	
+	soma_bytes = 0;
+	for(i = 0; i < n-2; i++) {
+		soma_bytes += lista->campo[i].tamanho;
+	}
+	
+	//impressao da classe que mais aparece...
+	//esta somente imprime o vizinho mais proximo...
+	//falta achar qual class mais aparece..
+	
+	fseek(fp, (lista->dist[0].offset+soma_bytes), SEEK_SET);
+	switch (lista->campo[n-2].tipo) {
+		case INT:
+			p1 = malloc(sizeof(int));
+			fread(p1, sizeof(int), 1, fp);
+			printf("%d\n", *((int*)p1));
+			free(p1);
+			break;
+		case DOUBLE:
+			p1 = malloc(sizeof(double));
+			fread(p1, sizeof(double), 1, fp);
+			printf("%.2lf\n", *((double*)p1));
+			free(p1);
+			break;
+		case CHAR:
+			p1 = malloc(sizeof(char)*(lista->campo[j].tamanho));
+			fread(p1, sizeof(char), lista->campo[j].tamanho, fp);
+			printf("%s\n", (char*)p1);
+			free(p1);
+			break;
+	}
+
+	liberaDist(lista);
+	fclose(fp);
+}
+
 
 //inicio do programa
 int main (int argc, char *arg[]) {
@@ -502,6 +597,7 @@ int main (int argc, char *arg[]) {
 		if(!strcmp(opt, "dump_schema")) dump_schema(lista);
 		if(!strcmp(opt, "dump_data")) dump_data(lista);
 		if(!strcmp(opt, "dump_nn")) dump_nn(lista);
+		if(!strcmp(opt, "knn")) knn(lista);
 	} while(strcmp(opt, "exit"));
 	
 	//liberacoes de memoria
